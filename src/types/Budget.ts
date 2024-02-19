@@ -1,6 +1,7 @@
 import { Customer } from "./Customer";
 
 export type Budget = {
+    id?: number;
     nameBudget: string;
     customerId: Customer;
     total: number;
