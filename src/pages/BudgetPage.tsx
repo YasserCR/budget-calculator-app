@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Input, Button, } from "@nextui-org/react";
+import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Input, Button, Select, SelectItem, } from "@nextui-org/react";
 import { EyeIcon } from "../../src/assets/EyeIcon.tsx";
 import { DeleteIcon } from "../../src/assets/DeleteIcon.tsx";
 import { EditIcon } from "../../src/assets/EditIcon.tsx";
@@ -7,6 +7,8 @@ import BudgetClient from "../fetch/Budget";
 import { Budget } from "../types/Budget";
 import { toast } from "react-toastify";
 import { Customer } from "../types/Customer";
+import CustomerClient from "../fetch/Customer.ts";
+import { BudgetStatus } from "../enums/BudgetStatus.ts";
 
 const BudgetPage = () => {
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -24,6 +26,21 @@ const BudgetPage = () => {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [customers, setCustomers] = useState([]);
+
+  const clearForm = () => {
+    setNameBudget('');
+    setCustomerId(null);
+    setTotal(0);
+    setStartDate('');
+    setEndDate('');
+    setStatus('');
+    setActive(false);
+    setGenerated(false);
+    setAccepted(false);
+  };
+
+
 
   const fetchBudgets = async () => {
     const budgetClient = new BudgetClient();
@@ -38,6 +55,9 @@ const BudgetPage = () => {
     );
     setFilteredBudgets(filteredData);
   };
+
+
+  const today = new Date().toISOString().split("T")[0];
 
   const handleSaveBudget = async () => {
     if (
@@ -81,6 +101,12 @@ const BudgetPage = () => {
       toast.error("Error al agregar el presupuesto");
     }
   };
+
+  const fetchCustomers = async () => {
+    const customerClient = new CustomerClient();
+    const response = await customerClient.getAllClients();
+    setCustomers(response);
+  }
 
   const handleUpdateBudget = async () => {
     if (
@@ -155,11 +181,18 @@ const BudgetPage = () => {
 
   useEffect(() => {
     fetchBudgets();
+    fetchCustomers();
   }, []);
 
   useEffect(() => {
     applySearchFilter(budgets);
   }, [searchTerm, budgets]);
+
+  useEffect(() => {
+    if (isEditing && editingBudget) {
+      setStatus(editingBudget.status);
+    }
+  }, [isEditing, editingBudget]);
 
   return (
     <div>
@@ -191,12 +224,12 @@ const BudgetPage = () => {
               <TableCell>{budget.nameBudget}</TableCell>
               <TableCell>{budget.customerId.name}</TableCell>
               <TableCell>{budget.total}</TableCell>
-              <TableCell>{budget.startDate}</TableCell>
-              <TableCell>{budget.endDate}</TableCell>
               <TableCell>{budget.status}</TableCell>
               <TableCell>{budget.active ? "Si" : "No"}</TableCell>
               <TableCell>{budget.generated ? "Si" : "No"}</TableCell>
               <TableCell>{budget.accepted ? "Si" : "No"}</TableCell>
+              <TableCell>{budget.startDate}</TableCell>
+              <TableCell>{budget.endDate}</TableCell>
               <TableCell>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <EyeIcon />
@@ -226,17 +259,45 @@ const BudgetPage = () => {
           <h2 className="text-3xl mb-4">{isEditing ? 'Editar Presupuesto' : 'Agregar Presupuesto'}</h2>
           <div className="space-y-4">
             <Input label="Nombre" type="text" value={nameBudget} onChange={(e) => setNameBudget(e.target.value)} />
-            <Input label="Cliente" type="text" value={customerId?.name || ''} disabled />
+            <Select
+              placeholder="Seleccione un cliente"
+              value={customerId?.id || ''}
+              onChange={(event) => setCustomerId(customers.find((customer: Customer) => customer.id === Number(event.target.value)) || null)}
+              defaultSelectedKeys={customerId?.id?.toString() || ''}
+            >
+              {customers.map((customer: Customer) => (
+                <SelectItem value={customer.id?.toString()} key={customer.id?.toString() || customer.toString()}>{customer.name}</SelectItem>
+              ))}
+            </Select>
             <Input label="Total" type="number" value={total.toString()} onChange={(e) => setTotal(Number(e.target.value))} />
-            <Input label="Fecha de inicio" type="text" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            <Input label="Fecha de fin" type="text" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            <Input label="Estado" type="text" value={status} onChange={(e) => setStatus(e.target.value)} />
+
+            <Select
+              label="Estado"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as BudgetStatus)}
+              defaultSelectedKeys={[status.toString()]}
+            >
+              {Object.values(BudgetStatus).map((status) => (
+                <SelectItem key={status} value={status}>
+                  {status}
+                </SelectItem>
+              ))}
+            </Select>
             <Input label="Activo" type="checkbox" checked={active} onChange={() => setActive(!active)} />
             <Input label="Generado" type="checkbox" checked={generated} onChange={() => setGenerated(!generated)} />
             <Input label="Aceptado" type="checkbox" checked={accepted} onChange={() => setAccepted(!accepted)} />
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="start-date">
+              Fecha de inicio
+            </label>
+            <Input id="start-date" type="date" value={startDate} min={today} onChange={(e) => setStartDate(e.target.value)} />
+
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="end-date">
+              Fecha de fin
+            </label>
+            <Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <div className="mt-4 flex justify-center space-x-4">
-            <Button onClick={() => { setModalOpen(false); setIsEditing(false); setEditingBudget(null); }}>Cancelar</Button>
+            <Button onClick={() => { setModalOpen(false); setIsEditing(false); setEditingBudget(null); clearForm(); }}>Cancelar</Button>
             {/* Usa handleUpdateBudget para actualizar y handleSaveBudget para agregar */}
             <Button onClick={isEditing ? handleUpdateBudget : handleSaveBudget}>
               {isEditing ? 'Actualizar' : 'Agregar'}

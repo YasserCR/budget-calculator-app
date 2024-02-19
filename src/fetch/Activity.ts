@@ -12,8 +12,12 @@ export default class ActivityClient {
     }
 
     public async getAllActivities() {
-        const response = await this.axiosClient.get('/activity');
-        return response.data;
+        try {
+            const response = await this.axiosClient.get('/activity');
+            return response.data;
+        } catch (error) {
+            console.error(error);
+        }
     }
 
     public async createActivity(activity: Activity) {
